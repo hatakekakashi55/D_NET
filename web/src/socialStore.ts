@@ -231,8 +231,41 @@ export const useSocialStore = create<SocialState>()(
         console.error('AI chat failed:', err);
       }
     } else {
-      // Real user threads: Push to Supabase for cross-device sync
-      // Do NOT duplicate locally — the recipient gets the message when they sync
+      // Real user threads: Sync the message to the recipient's inbox locally
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        set((state) => {
+          let recipientThread = state.threads.find(t => t.ownerId === partnerId && t.user.id === currentUserId);
+          let newThreads = [...state.threads];
+
+          if (!recipientThread) {
+            recipientThread = {
+              id: 't_' + Date.now() + '_recp',
+              ownerId: partnerId,
+              user: {
+                id: currentUser.id,
+                username: currentUser.email?.split('@')[0] || 'dreamer',
+                display_name: (currentUser as any).user_metadata?.display_name || currentUser.email?.split('@')[0] || 'Dreamer',
+                is_ai: false
+              } as any,
+              messages: []
+            };
+            newThreads.push(recipientThread);
+          }
+
+          // Add message to recipient's thread (with seen: false)
+          newThreads = newThreads.map(t => {
+            if (t.id === recipientThread!.id) {
+              return { ...t, isUnread: true, messages: [...t.messages, { ...myMsg, seen: false }] };
+            }
+            return t;
+          });
+
+          return { threads: newThreads };
+        });
+      }
+
+      // Also push to Supabase for cross-device sync
       supabase.from('chat_messages').insert({
         sender_id: currentUserId,
         receiver_id: partnerId,
