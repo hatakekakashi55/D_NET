@@ -1,0 +1,283 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import api from './api';
+import { encryptMessage } from './crypto';
+import { supabase } from './supabaseClient';
+
+export interface SocialUser {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_color: string;
+  bio: string;
+  followers: number;
+  following: number;
+  is_following: boolean;
+}
+
+export interface Post {
+  id: string;
+  user: SocialUser;
+  archetype: string;
+  text: string;
+  realm: string;
+  likes: number;
+  has_liked: boolean;
+  comments: { username: string; text: string }[];
+  created_at: string;
+}
+
+export interface ChatMessage {
+  senderId: string;
+  text: string;
+  timestamp: string; // ISO string
+  seen?: boolean;
+  encrypted?: boolean; // true if text is AES-256-GCM encrypted
+}
+
+export interface ChatThread {
+  id: string;
+  user: SocialUser | { id: string; username: string; display_name: string; is_ai: boolean };
+  messages: ChatMessage[];
+}
+
+interface SocialState {
+  users: SocialUser[];
+  posts: Post[];
+  threads: ChatThread[];
+  activeThreadId: string | null;
+  isLoading: boolean;
+
+  initializeSocial: () => void;
+  likePost: (postId: string) => void;
+  addComment: (postId: string, commentText: string) => void;
+  toggleFollow: (userId: string) => void;
+  sendMessage: (threadId: string, text: string) => Promise<void>;
+  createThread: (user: SocialUser) => string;
+  backupChats: () => Promise<void>;
+  restoreChats: () => Promise<void>;
+}
+
+const MOCK_USERS: SocialUser[] = [
+  { id: 'u_1', username: 'selene_dreamer', display_name: 'Selene Luna', avatar_color: '#8B8BF5', bio: 'Exploring deep lucidity and cosmic ocean portals. 🌌', followers: 231, following: 145, is_following: false },
+  { id: 'u_2', username: 'chronos_key', display_name: 'Chronos', avatar_color: '#9B7EC8', bio: 'Searching for time keys in the falling cities.', followers: 512, following: 89, is_following: true },
+  { id: 'u_3', username: 'aura_mind', display_name: 'Aura', avatar_color: '#7BA5B5', bio: 'Chasing the glowing forest whispers.', followers: 104, following: 210, is_following: false },
+  { id: 'u_4', username: 'nebula_flow', display_name: 'Nebula', avatar_color: '#C4A962', bio: 'Just float through the void. ✨', followers: 389, following: 400, is_following: false },
+];
+
+export const useSocialStore = create<SocialState>()(
+  persist(
+    (set, get) => ({
+  users: MOCK_USERS,
+  posts: [],
+  threads: [],
+  activeThreadId: null,
+  isLoading: false,
+
+  initializeSocial: () => {
+    // Generate some interesting global posts combining chronicles and dream archetypes
+    const initialPosts: Post[] = [
+      {
+        id: 'p_1',
+        user: MOCK_USERS[0],
+        archetype: 'Floating Ocean Currents',
+        text: 'I was floating over deep, glowing currents last night. The water felt warm, and when I reached out, stars came up from the deep.',
+        realm: 'Ocean Realm',
+        likes: 42,
+        has_liked: false,
+        comments: [
+          { username: 'chronos_key', text: 'Amazing! I saw similar currents in the Maze.' }
+        ],
+        created_at: new Date(Date.now() - 3600000 * 2).toISOString()
+      },
+      {
+        id: 'p_2',
+        user: MOCK_USERS[1],
+        archetype: 'The Falling Towers',
+        text: 'Skyscrapers were falling down around me like soft blocks. But they never hit the ground, they just drifted away like clouds.',
+        realm: 'Falling City',
+        likes: 128,
+        has_liked: true,
+        comments: [
+          { username: 'aura_mind', text: 'This represents transition. Did you feel anxious?' }
+        ],
+        created_at: new Date(Date.now() - 3600000 * 5).toISOString()
+      },
+      {
+        id: 'p_3',
+        user: MOCK_USERS[2],
+        archetype: 'Whispering Trees',
+        text: 'The trees spoke to me in ancient syllables. They said the boundary between realms is starting to dissolve.',
+        realm: 'Lost Forest',
+        likes: 19,
+        has_liked: false,
+        comments: [],
+        created_at: new Date(Date.now() - 3600000 * 12).toISOString()
+      }
+    ];
+    set({ posts: initialPosts });
+  },
+
+  likePost: (postId) => {
+    set((state) => ({
+      posts: state.posts.map((p) => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            likes: p.has_liked ? p.likes - 1 : p.likes + 1,
+            has_liked: !p.has_liked
+          };
+        }
+        return p;
+      })
+    }));
+  },
+
+  addComment: (postId, commentText) => {
+    const userJson = localStorage.getItem('dnet_user');
+    const username = userJson ? JSON.parse(userJson).display_name : 'anonymous';
+    set((state) => ({
+      posts: state.posts.map((p) => {
+        if (p.id === postId) {
+          return {
+            ...p,
+            comments: [...p.comments, { username, text: commentText }]
+          };
+        }
+        return p;
+      })
+    }));
+  },
+
+  toggleFollow: (userId) => {
+    set((state) => ({
+      users: state.users.map((u) => {
+        if (u.id === userId) {
+          return {
+            ...u,
+            is_following: !u.is_following,
+            followers: u.is_following ? u.followers - 1 : u.followers + 1
+          };
+        }
+        return u;
+      })
+    }));
+  },
+
+  sendMessage: async (threadId, text) => {
+    const { useAuthStore } = await import('./authStore');
+    const currentUserId = useAuthStore.getState().user?.id || 'me';
+    const aiId = 'ai_dguide';
+    const now = new Date().toISOString();
+
+    const currentThread = get().threads.find((t) => t.id === threadId);
+    if (!currentThread) return;
+
+    const isAiThread = (currentThread.user as any).is_ai;
+    const partnerId = currentThread.user.id;
+
+    // Encrypt message for real user threads, plaintext for AI
+    let storedText = text;
+    let encrypted = false;
+    if (!isAiThread) {
+      storedText = await encryptMessage(text, currentUserId, partnerId);
+      encrypted = true;
+    }
+
+    const myMsg: ChatMessage = { senderId: currentUserId, text: storedText, timestamp: now, encrypted };
+
+    set((state) => ({
+      threads: state.threads.map((t) => {
+        if (t.id === threadId) {
+          return { ...t, messages: [...t.messages, myMsg] };
+        }
+        return t;
+      })
+    }));
+
+    if (isAiThread) {
+      // D-Guide AI response via API (plaintext for AI to process)
+      try {
+        const updatedThread = get().threads.find((t) => t.id === threadId)!;
+        const mappedMessages = updatedThread.messages.map((m) => ({
+          role: m.senderId === currentUserId ? 'user' as const : 'assistant' as const,
+          content: m.text
+        }));
+        const res = await api.post('/api/chat', { messages: mappedMessages });
+        const replyText = res.data.response;
+        set((state) => ({
+          threads: state.threads.map((t) => {
+            if (t.id === threadId) {
+              return {
+                ...t,
+                messages: [...t.messages, { senderId: aiId, text: replyText, timestamp: new Date().toISOString(), encrypted: false }]
+              };
+            }
+            return t;
+          })
+        }));
+      } catch (err) {
+        console.error('AI chat failed:', err);
+      }
+    }
+    // Real user threads: no auto-reply.
+  },
+
+  createThread: (user) => {
+    const existing = get().threads.find((t) => t.user.id === user.id);
+    if (existing) {
+      set({ activeThreadId: existing.id });
+      return existing.id;
+    }
+    const newId = 't_' + Date.now();
+    const newThread: ChatThread = {
+      id: newId,
+      user,
+      messages: []
+    };
+    set((state) => ({
+      threads: [newThread, ...state.threads],
+      activeThreadId: newId
+    }));
+    return newId;
+  },
+
+  backupChats: async () => {
+    const { useAuthStore } = await import('./authStore');
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    
+    const threads = get().threads;
+    const { error } = await supabase
+      .from('chat_backups')
+      .upsert({ user_id: user.id, threads_data: threads, updated_at: new Date().toISOString() });
+    
+    if (error) console.error('Failed to backup chats:', error);
+  },
+
+  restoreChats: async () => {
+    const { useAuthStore } = await import('./authStore');
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('chat_backups')
+      .select('threads_data')
+      .eq('user_id', user.id)
+      .single();
+
+    if (error) {
+      console.error('Failed to restore chats:', error);
+      return;
+    }
+
+    if (data && data.threads_data) {
+      set({ threads: data.threads_data });
+    }
+  }
+}),
+{
+  name: 'dnet-social-storage',
+  partialize: (state) => ({ threads: state.threads }),
+}
+));
