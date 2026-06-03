@@ -268,7 +268,9 @@ export const useSocialStore = create<SocialState>()(
           receiver_id: partnerId,
           encrypted_text: storedText
         }).then(({ error }) => {
-          if (error) console.error('Failed to sync to chat_messages:', error);
+          if (error && error.code !== 'PGRST205') {
+            console.error('Failed to sync to chat_messages:', error);
+          }
         });
       }
     }
@@ -350,10 +352,16 @@ export const useSocialStore = create<SocialState>()(
       .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order('created_at', { ascending: true });
 
-    if (error || !data) {
+    if (error) {
+      if (error.code === 'PGRST205') {
+        console.warn('Sync skipped: Please create chat_messages table in Supabase SQL editor.');
+        return;
+      }
       console.error('Failed to sync chat messages:', error);
       return;
     }
+    
+    if (!data) return;
 
     // We will merge these messages into the user's threads.
     // For simplicity, we can reconstruct the threads or just append missing messages.
