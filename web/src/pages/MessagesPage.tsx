@@ -321,24 +321,30 @@ export default function MessagesPage() {
                   if (!a.isPinned && b.isPinned) return 1;
                   return 0;
                 })
-                .map((t) => (
+                .map((t) => {
+                  const unreadCount = t.messages.filter(m => m.senderId !== user?.id && m.seen === false).length;
+                  const isHighlighted = t.isUnread || unreadCount > 0;
+                  
+                  return (
                 <div
                   key={t.id}
                   style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: t.id === activeThreadId ? 'var(--surface)' : 'transparent', transition: 'background 0.2s ease', position: 'relative' }}
                   onClick={() => {
                     useSocialStore.setState({ activeThreadId: t.id });
-                    if (t.isUnread) useSocialStore.getState().toggleUnreadThread(t.id);
+                    if (isHighlighted) useSocialStore.getState().markThreadAsRead(t.id);
                   }}
                   onMouseLeave={() => setMenuThreadId(null)}
                 >
                   <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: (t.user as any).avatar_color || 'var(--border-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px', color: '#fff', flexShrink: 0, position: 'relative' }}>
                     {t.user.display_name[0].toUpperCase()}
-                    {t.isUnread && <span style={{ position: 'absolute', top: 2, right: 2, width: 12, height: 12, background: 'var(--primary)', borderRadius: '50%', border: '2px solid var(--bg)' }} />}
+                    {isHighlighted && <span style={{ position: 'absolute', top: 2, right: 2, width: 12, height: 12, background: 'var(--primary)', borderRadius: '50%', border: '2px solid var(--bg)' }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ fontWeight: 400, fontSize: '14px', color: 'var(--text-1)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{t.user.display_name}</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-3)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'flex', gap: '4px' }}>
-                      {t.messages.length > 0 ? (
+                    <div style={{ fontWeight: isHighlighted ? 600 : 400, fontSize: '14px', color: isHighlighted ? '#fff' : 'var(--text-1)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{t.user.display_name}</div>
+                    <div style={{ fontSize: '13px', color: isHighlighted ? '#fff' : 'var(--text-3)', fontWeight: isHighlighted ? 500 : 400, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      {unreadCount > 1 ? (
+                        <span style={{ color: 'var(--primary)', fontWeight: 600 }}>{unreadCount} new messages</span>
+                      ) : t.messages.length > 0 ? (
                         <DecryptedPreview m={t.messages[t.messages.length - 1]} myUserId={user?.id || ''} partnerId={t.user.id} />
                       ) : (
                         <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>Tap to chat</span>
@@ -380,7 +386,7 @@ export default function MessagesPage() {
                     </div>
                   )}
                 </div>
-              ))
+              )})
             )}
           </div>
         </div>

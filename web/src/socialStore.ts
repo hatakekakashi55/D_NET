@@ -64,6 +64,7 @@ interface SocialState {
   deleteThread: (threadId: string) => void;
   togglePinThread: (threadId: string) => void;
   toggleUnreadThread: (threadId: string) => void;
+  markThreadAsRead: (threadId: string) => void;
 }
 
 const MOCK_USERS: SocialUser[] = [
@@ -254,7 +255,8 @@ export const useSocialStore = create<SocialState>()(
           // Add message to recipient's thread
           newThreads = newThreads.map(t => {
             if (t.id === recipientThread!.id) {
-              return { ...t, messages: [...t.messages, myMsg] };
+              const recipientMsg = { ...myMsg, seen: false };
+              return { ...t, isUnread: true, messages: [...t.messages, recipientMsg] };
             }
             return t;
           });
@@ -400,8 +402,10 @@ export const useSocialStore = create<SocialState>()(
             senderId: msg.sender_id,
             text: msg.encrypted_text,
             timestamp: msg.created_at,
-            encrypted: true
+            encrypted: true,
+            seen: isMeSender ? true : false
           });
+          if (!isMeSender) thread.isUnread = true;
         }
       });
 
@@ -425,6 +429,19 @@ export const useSocialStore = create<SocialState>()(
 
   toggleUnreadThread: (threadId) => set((state) => ({
     threads: state.threads.map((t) => t.id === threadId ? { ...t, isUnread: !t.isUnread } : t)
+  })),
+
+  markThreadAsRead: (threadId) => set((state) => ({
+    threads: state.threads.map((t) => {
+      if (t.id === threadId) {
+        return {
+          ...t,
+          isUnread: false,
+          messages: t.messages.map(m => ({ ...m, seen: true }))
+        };
+      }
+      return t;
+    })
   }))
 }),
 {
