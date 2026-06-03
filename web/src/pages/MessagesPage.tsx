@@ -58,6 +58,8 @@ function DecryptedBubble({ m, isMe, isFirst: _isFirst, isLast, isVeryLast, borde
 export default function MessagesPage() {
   const { user } = useAuthStore();
   const { threads, activeThreadId, sendMessage, createThread, backupChats, restoreChats } = useSocialStore();
+  
+  const myThreads = threads.filter(t => t.ownerId === user?.id);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -77,7 +79,7 @@ export default function MessagesPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const activeThread = threads.find((t) => t.id === activeThreadId);
+  const activeThread = myThreads.find((t) => t.id === activeThreadId);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -277,7 +279,7 @@ export default function MessagesPage() {
                   ))
                 )}
               </div>
-            ) : threads.length === 0 ? (
+            ) : myThreads.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-3)', padding: '40px 20px', textAlign: 'center' }}>
                 <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '2px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
                   <MessageSquare size={32} />
@@ -291,7 +293,7 @@ export default function MessagesPage() {
                 </button>
               </div>
             ) : (
-              threads.map((t) => (
+              myThreads.map((t) => (
                 <div
                   key={t.id}
                   onClick={() => useSocialStore.setState({ activeThreadId: t.id })}

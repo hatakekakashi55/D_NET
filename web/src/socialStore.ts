@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import api from './api';
 import { encryptMessage } from './crypto';
 import { supabase } from './supabaseClient';
+import { useAuthStore } from './authStore';
 
 export interface SocialUser {
   id: string;
@@ -37,7 +38,8 @@ export interface ChatMessage {
 
 export interface ChatThread {
   id: string;
-  user: SocialUser | { id: string; username: string; display_name: string; is_ai: boolean };
+  ownerId: string; // The user ID who owns this inbox thread
+  user: SocialUser | { id: string; username: string; display_name: string; is_ai: boolean }; // The OTHER user
   messages: ChatMessage[];
 }
 
@@ -219,12 +221,48 @@ export const useSocialStore = create<SocialState>()(
       } catch (err) {
         console.error('AI chat failed:', err);
       }
+    } else {
+      // Real user threads: Sync the message to the recipient's inbox in local storage
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        set((state) => {
+          let recipientThread = state.threads.find(t => t.ownerId === partnerId && t.user.id === currentUserId);
+          let newThreads = [...state.threads];
+
+          if (!recipientThread) {
+            // Create a thread for the recipient where the 'user' is the sender
+            recipientThread = {
+              id: 't_' + Date.now() + '_recp',
+              ownerId: partnerId,
+              user: {
+                id: currentUser.id,
+                username: currentUser.email?.split('@')[0] || 'dreamer',
+                display_name: (currentUser as any).user_metadata?.display_name || currentUser.email?.split('@')[0] || 'Dreamer',
+                is_ai: false
+              } as any,
+              messages: []
+            };
+            newThreads.push(recipientThread);
+          }
+
+          // Add message to recipient's thread
+          newThreads = newThreads.map(t => {
+            if (t.id === recipientThread!.id) {
+              return { ...t, messages: [...t.messages, myMsg] };
+            }
+            return t;
+          });
+
+          return { threads: newThreads };
+        });
+      }
     }
-    // Real user threads: no auto-reply.
   },
 
   createThread: (user) => {
-    const existing = get().threads.find((t) => t.user.id === user.id);
+    const currentUserId = useAuthStore.getState().user?.id || 'me';
+
+    const existing = get().threads.find((t) => t.ownerId === currentUserId && t.user.id === user.id);
     if (existing) {
       set({ activeThreadId: existing.id });
       return existing.id;
@@ -232,6 +270,7 @@ export const useSocialStore = create<SocialState>()(
     const newId = 't_' + Date.now();
     const newThread: ChatThread = {
       id: newId,
+      ownerId: currentUserId,
       user,
       messages: []
     };
@@ -247,10 +286,11 @@ export const useSocialStore = create<SocialState>()(
     const user = useAuthStore.getState().user;
     if (!user) return;
     
-    const threads = get().threads;
+    // Only backup this user's threads
+    const myThreads = get().threads.filter(t => t.ownerId === user.id);
     const { error } = await supabase
       .from('chat_backups')
-      .upsert({ user_id: user.id, threads_data: threads, updated_at: new Date().toISOString() });
+      .upsert({ user_id: user.id, threads_data: myThreads, updated_at: new Date().toISOString() });
     
     if (error) console.error('Failed to backup chats:', error);
   },
@@ -272,7 +312,14 @@ export const useSocialStore = create<SocialState>()(
     }
 
     if (data && data.threads_data) {
-      set({ threads: data.threads_data });
+      const restoredThreads = data.threads_data as ChatThread[];
+      // Keep other users' threads local, update this user's threads
+      set((state) => ({
+        threads: [
+          ...state.threads.filter(t => t.ownerId !== user.id),
+          ...restoredThreads
+        ]
+      }));
     }
   }
 }),
