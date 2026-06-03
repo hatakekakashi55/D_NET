@@ -229,52 +229,17 @@ export const useSocialStore = create<SocialState>()(
         console.error('AI chat failed:', err);
       }
     } else {
-      // Real user threads: Sync the message to the recipient's inbox in local storage
-      const currentUser = useAuthStore.getState().user;
-      if (currentUser) {
-        set((state) => {
-          let recipientThread = state.threads.find(t => t.ownerId === partnerId && t.user.id === currentUserId);
-          let newThreads = [...state.threads];
-
-          if (!recipientThread) {
-            // Create a thread for the recipient where the 'user' is the sender
-            recipientThread = {
-              id: 't_' + Date.now() + '_recp',
-              ownerId: partnerId,
-              user: {
-                id: currentUser.id,
-                username: currentUser.email?.split('@')[0] || 'dreamer',
-                display_name: (currentUser as any).user_metadata?.display_name || currentUser.email?.split('@')[0] || 'Dreamer',
-                is_ai: false
-              } as any,
-              messages: []
-            };
-            newThreads.push(recipientThread);
-          }
-
-          // Add message to recipient's thread
-          newThreads = newThreads.map(t => {
-            if (t.id === recipientThread!.id) {
-              const recipientMsg = { ...myMsg, seen: false };
-              return { ...t, isUnread: true, messages: [...t.messages, recipientMsg] };
-            }
-            return t;
-          });
-
-          return { threads: newThreads };
-        });
-
-        // Also push to Supabase chat_messages so it works across devices
-        supabase.from('chat_messages').insert({
-          sender_id: currentUserId,
-          receiver_id: partnerId,
-          encrypted_text: storedText
-        }).then(({ error }) => {
-          if (error && error.code !== 'PGRST205') {
-            console.error('Failed to sync to chat_messages:', error);
-          }
-        });
-      }
+      // Real user threads: Push to Supabase for cross-device sync
+      // Do NOT duplicate locally — the recipient gets the message when they sync
+      supabase.from('chat_messages').insert({
+        sender_id: currentUserId,
+        receiver_id: partnerId,
+        encrypted_text: storedText
+      }).then(({ error }) => {
+        if (error && error.code !== 'PGRST205') {
+          console.error('Failed to sync to chat_messages:', error);
+        }
+      });
     }
   },
 
