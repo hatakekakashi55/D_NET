@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSocialStore } from '../socialStore';
 import type { ChatMessage } from '../socialStore';
 import { formatMarkdown } from '../helpers';
-import { ArrowLeft, Search, Phone, Video, Info, Image as ImageIcon, Mic, PlusCircle, MessageSquare, Camera, X, Lock, CloudUpload, CloudDownload } from 'lucide-react';
+import { ArrowLeft, Search, Phone, Video, Info, Image as ImageIcon, Mic, PlusCircle, MessageSquare, Camera, X, Lock, CloudUpload, CloudDownload, MoreVertical, Pin, Trash2, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../authStore';
 import { supabase } from '../supabaseClient';
 import { decryptMessage } from '../crypto';
@@ -86,6 +86,7 @@ export default function MessagesPage() {
   
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [menuThreadId, setMenuThreadId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -314,14 +315,25 @@ export default function MessagesPage() {
                 </button>
               </div>
             ) : (
-              myThreads.map((t) => (
+              myThreads
+                .sort((a, b) => {
+                  if (a.isPinned && !b.isPinned) return -1;
+                  if (!a.isPinned && b.isPinned) return 1;
+                  return 0;
+                })
+                .map((t) => (
                 <div
                   key={t.id}
-                  onClick={() => useSocialStore.setState({ activeThreadId: t.id })}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: t.id === activeThreadId ? 'var(--surface)' : 'transparent', transition: 'background 0.2s ease' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', background: t.id === activeThreadId ? 'var(--surface)' : 'transparent', transition: 'background 0.2s ease', position: 'relative' }}
+                  onClick={() => {
+                    useSocialStore.setState({ activeThreadId: t.id });
+                    if (t.isUnread) useSocialStore.getState().toggleUnreadThread(t.id);
+                  }}
+                  onMouseLeave={() => setMenuThreadId(null)}
                 >
-                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: (t.user as any).avatar_color || 'var(--border-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px', color: '#fff', flexShrink: 0 }}>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: (t.user as any).avatar_color || 'var(--border-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px', color: '#fff', flexShrink: 0, position: 'relative' }}>
                     {t.user.display_name[0].toUpperCase()}
+                    {t.isUnread && <span style={{ position: 'absolute', top: 2, right: 2, width: 12, height: 12, background: 'var(--primary)', borderRadius: '50%', border: '2px solid var(--bg)' }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <div style={{ fontWeight: 400, fontSize: '14px', color: 'var(--text-1)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{t.user.display_name}</div>
@@ -334,6 +346,39 @@ export default function MessagesPage() {
                       {t.messages.length > 0 && <span>· {getRelativeTime(t.messages[t.messages.length - 1]?.timestamp)}</span>}
                     </div>
                   </div>
+                  
+                  {/* Context Menu Button */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setMenuThreadId(menuThreadId === t.id ? null : t.id); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    {t.isPinned && <Pin size={14} style={{ marginRight: 4 }} />}
+                    <MoreVertical size={16} />
+                  </button>
+
+                  {/* Context Menu Dropdown */}
+                  {menuThreadId === t.id && (
+                    <div style={{ position: 'absolute', right: '40px', top: '50%', transform: 'translateY(-50%)', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '4px', zIndex: 10, display: 'flex', flexDirection: 'column', minWidth: '160px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); useSocialStore.getState().togglePinThread(t.id); setMenuThreadId(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-1)', cursor: 'pointer', textAlign: 'left', borderRadius: 'var(--radius-sm)', fontSize: '14px' }}
+                      >
+                        <Pin size={16} /> {t.isPinned ? 'Unpin' : 'Pin to top'}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); useSocialStore.getState().toggleUnreadThread(t.id); setMenuThreadId(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--text-1)', cursor: 'pointer', textAlign: 'left', borderRadius: 'var(--radius-sm)', fontSize: '14px' }}
+                      >
+                        {t.isUnread ? <Eye size={16} /> : <EyeOff size={16} />} {t.isUnread ? 'Mark as read' : 'Mark as unread'}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); useSocialStore.getState().deleteThread(t.id); setMenuThreadId(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', textAlign: 'left', borderRadius: 'var(--radius-sm)', fontSize: '14px' }}
+                      >
+                        <Trash2 size={16} /> Delete chat
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
             )}

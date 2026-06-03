@@ -41,6 +41,8 @@ export interface ChatThread {
   ownerId: string; // The user ID who owns this inbox thread
   user: SocialUser | { id: string; username: string; display_name: string; is_ai: boolean }; // The OTHER user
   messages: ChatMessage[];
+  isPinned?: boolean;
+  isUnread?: boolean;
 }
 
 interface SocialState {
@@ -59,6 +61,9 @@ interface SocialState {
   backupChats: () => Promise<void>;
   restoreChats: () => Promise<void>;
   syncDirectMessages: () => Promise<void>;
+  deleteThread: (threadId: string) => void;
+  togglePinThread: (threadId: string) => void;
+  toggleUnreadThread: (threadId: string) => void;
 }
 
 const MOCK_USERS: SocialUser[] = [
@@ -399,7 +404,20 @@ export const useSocialStore = create<SocialState>()(
 
       return { threads: [...otherThreads, ...myThreads] };
     });
-  }
+  },
+
+  deleteThread: (threadId) => set((state) => ({
+    threads: state.threads.filter((t) => t.id !== threadId),
+    activeThreadId: state.activeThreadId === threadId ? null : state.activeThreadId
+  })),
+
+  togglePinThread: (threadId) => set((state) => ({
+    threads: state.threads.map((t) => t.id === threadId ? { ...t, isPinned: !t.isPinned } : t)
+  })),
+
+  toggleUnreadThread: (threadId) => set((state) => ({
+    threads: state.threads.map((t) => t.id === threadId ? { ...t, isUnread: !t.isUnread } : t)
+  }))
 }),
 {
   name: 'dnet-social-storage',
