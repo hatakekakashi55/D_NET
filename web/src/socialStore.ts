@@ -49,6 +49,7 @@ interface SocialState {
   users: SocialUser[];
   posts: Post[];
   threads: ChatThread[];
+  deletedPartnerIds: string[];
   activeThreadId: string | null;
   isLoading: boolean;
 
@@ -80,6 +81,7 @@ export const useSocialStore = create<SocialState>()(
   users: MOCK_USERS,
   posts: [],
   threads: [],
+  deletedPartnerIds: [],
   activeThreadId: null,
   isLoading: false,
 
@@ -337,10 +339,16 @@ export const useSocialStore = create<SocialState>()(
       let myThreads = state.threads.filter(t => t.ownerId === user.id);
       const otherThreads = state.threads.filter(t => t.ownerId !== user.id);
 
+      // Get list of deleted partner IDs to skip
+      const deletedIds = state.deletedPartnerIds || [];
+
       // Process each message
       data.forEach(msg => {
         const isMeSender = msg.sender_id === user.id;
         const partnerId = isMeSender ? msg.receiver_id : msg.sender_id;
+
+        // Skip messages from partners the user has deleted
+        if (deletedIds.includes(partnerId)) return;
         
         let thread = myThreads.find(t => t.user.id === partnerId);
         if (!thread) {
@@ -383,10 +391,17 @@ export const useSocialStore = create<SocialState>()(
     });
   },
 
-  deleteThread: (threadId) => set((state) => ({
-    threads: state.threads.filter((t) => t.id !== threadId),
-    activeThreadId: state.activeThreadId === threadId ? null : state.activeThreadId
-  })),
+  deleteThread: (threadId) => set((state) => {
+    const threadToDelete = state.threads.find(t => t.id === threadId);
+    const partnerId = threadToDelete?.user?.id;
+    return {
+      threads: state.threads.filter((t) => t.id !== threadId),
+      activeThreadId: state.activeThreadId === threadId ? null : state.activeThreadId,
+      deletedPartnerIds: partnerId && !(state.deletedPartnerIds || []).includes(partnerId)
+        ? [...(state.deletedPartnerIds || []), partnerId]
+        : (state.deletedPartnerIds || [])
+    };
+  }),
 
   togglePinThread: (threadId) => set((state) => ({
     threads: state.threads.map((t) => t.id === threadId ? { ...t, isPinned: !t.isPinned } : t)
@@ -411,6 +426,6 @@ export const useSocialStore = create<SocialState>()(
 }),
 {
   name: 'dnet-social-storage',
-  partialize: (state) => ({ threads: state.threads }),
+  partialize: (state) => ({ threads: state.threads, deletedPartnerIds: state.deletedPartnerIds }),
 }
 ));
