@@ -1,0 +1,33 @@
+services:
+  # Backend Service
+  - type: web
+    name: dnet-backend
+    env: python
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+  # Frontend Service
+  - type: web
+    name: dnet-frontend
+    env: static
+    buildCommand: "cd web && npm install && npm run build"
+    staticPublishPath: "./web/dist"
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: dnet-backend
+          envVarKey: RENDER_EXTERNAL_URL
