@@ -155,3 +155,20 @@ create policy "Users can insert their own chat backups"
 create policy "Users can update their own chat backups"
     on public.chat_backups for update
     using (auth.uid() = user_id);
+
+-- 9. Real-time Direct Messages
+create table if not exists public.chat_messages (
+    id uuid default gen_random_uuid() primary key,
+    sender_id uuid references public.profiles(id) on delete cascade not null,
+    receiver_id uuid references public.profiles(id) on delete cascade not null,
+    encrypted_text text not null,
+    created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS
+alter table public.chat_messages enable row level security;
+
+-- Policies
+create policy "Users can insert messages" on public.chat_messages for insert with check (auth.uid() = sender_id);
+create policy "Users can read their messages" on public.chat_messages for select using (auth.uid() = sender_id or auth.uid() = receiver_id);
+

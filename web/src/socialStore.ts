@@ -58,6 +58,7 @@ interface SocialState {
   createThread: (user: SocialUser) => string;
   backupChats: () => Promise<void>;
   restoreChats: () => Promise<void>;
+  syncDirectMessages: () => Promise<void>;
 }
 
 const MOCK_USERS: SocialUser[] = [
@@ -255,6 +256,15 @@ export const useSocialStore = create<SocialState>()(
 
           return { threads: newThreads };
         });
+
+        // Also push to Supabase chat_messages so it works across devices
+        supabase.from('chat_messages').insert({
+          sender_id: currentUserId,
+          receiver_id: partnerId,
+          encrypted_text: storedText
+        }).then(({ error }) => {
+          if (error) console.error('Failed to sync to chat_messages:', error);
+        });
       }
     }
   },
@@ -321,6 +331,74 @@ export const useSocialStore = create<SocialState>()(
         ]
       }));
     }
+  },
+
+  syncDirectMessages: async () => {
+    const { useAuthStore } = await import('./authStore');
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+
+    // Fetch all messages where user is sender or receiver
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .order('created_at', { ascending: true });
+
+    if (error || !data) {
+      console.error('Failed to sync chat messages:', error);
+      return;
+    }
+
+    // We will merge these messages into the user's threads.
+    // For simplicity, we can reconstruct the threads or just append missing messages.
+    // Let's just rebuild the threads based on existing threads + new messages.
+    set((state) => {
+      let myThreads = state.threads.filter(t => t.ownerId === user.id);
+      const otherThreads = state.threads.filter(t => t.ownerId !== user.id);
+
+      // Process each message
+      data.forEach(msg => {
+        const isMeSender = msg.sender_id === user.id;
+        const partnerId = isMeSender ? msg.receiver_id : msg.sender_id;
+        
+        let thread = myThreads.find(t => t.user.id === partnerId);
+        if (!thread) {
+          // If we don't have the user's profile, we create a placeholder thread.
+          // Ideally we would fetch the profile, but this is a quick sync.
+          thread = {
+            id: 't_' + partnerId,
+            ownerId: user.id,
+            user: {
+              id: partnerId,
+              username: 'dreamer_' + partnerId.substring(0, 4),
+              display_name: 'Dreamer',
+              is_ai: false
+            } as any,
+            messages: []
+          };
+          myThreads.push(thread);
+        }
+
+        // Check if message already exists by timestamp and text
+        const exists = thread.messages.find(m => m.timestamp === msg.created_at && m.text === msg.encrypted_text);
+        if (!exists) {
+          thread.messages.push({
+            senderId: msg.sender_id,
+            text: msg.encrypted_text,
+            timestamp: msg.created_at,
+            encrypted: true
+          });
+        }
+      });
+
+      // Sort messages in each thread by timestamp
+      myThreads.forEach(t => {
+        t.messages.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      });
+
+      return { threads: [...otherThreads, ...myThreads] };
+    });
   }
 }),
 {

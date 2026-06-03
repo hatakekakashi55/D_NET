@@ -41,6 +41,7 @@ function DecryptedBubble({ m, isMe, isFirst: _isFirst, isLast, isVeryLast, borde
   return (
     <div style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '75%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', marginBottom: isLast ? '12px' : '2px' }}>
       <div
+        className="msg-content"
         dangerouslySetInnerHTML={{ __html: formatMarkdown(text) }}
         style={{ background: isMe ? 'linear-gradient(135deg, var(--primary), #4CC9F0)' : 'var(--surface)', borderRadius, padding: '10px 16px', fontSize: '15px', lineHeight: '1.4', color: isMe ? '#fff' : 'var(--text-1)', wordBreak: 'break-word' }}
       />
@@ -55,9 +56,24 @@ function DecryptedBubble({ m, isMe, isFirst: _isFirst, isLast, isVeryLast, borde
   );
 }
 
+/** Renders a small preview of the last message in the thread list */
+function DecryptedPreview({ m, myUserId, partnerId }: { m: ChatMessage; myUserId: string; partnerId: string; }) {
+  const [text, setText] = useState(m.encrypted ? '🔒 ...' : m.text);
+
+  useEffect(() => {
+    if (m.encrypted) {
+      decryptMessage(m.text, myUserId, partnerId).then(setText);
+    } else {
+      setText(m.text);
+    }
+  }, [m.text, m.encrypted, myUserId, partnerId]);
+
+  return <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{text}</span>;
+}
+
 export default function MessagesPage() {
   const { user } = useAuthStore();
-  const { threads, activeThreadId, sendMessage, createThread, backupChats, restoreChats } = useSocialStore();
+  const { threads, activeThreadId, sendMessage, createThread, backupChats, restoreChats, syncDirectMessages } = useSocialStore();
   
   const myThreads = threads.filter(t => t.ownerId === user?.id);
   const [input, setInput] = useState('');
@@ -72,6 +88,11 @@ export default function MessagesPage() {
   const [isRestoring, setIsRestoring] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync real-time messages on mount
+  useEffect(() => {
+    if (user) syncDirectMessages();
+  }, [user]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -305,7 +326,11 @@ export default function MessagesPage() {
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                     <div style={{ fontWeight: 400, fontSize: '14px', color: 'var(--text-1)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{t.user.display_name}</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-3)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', display: 'flex', gap: '4px' }}>
-                      <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{t.messages.length > 0 ? t.messages[t.messages.length - 1]?.text : 'Tap to chat'}</span>
+                      {t.messages.length > 0 ? (
+                        <DecryptedPreview m={t.messages[t.messages.length - 1]} myUserId={user?.id || ''} partnerId={t.user.id} />
+                      ) : (
+                        <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>Tap to chat</span>
+                      )}
                       {t.messages.length > 0 && <span>· {getRelativeTime(t.messages[t.messages.length - 1]?.timestamp)}</span>}
                     </div>
                   </div>
@@ -334,7 +359,7 @@ export default function MessagesPage() {
               {isMobile && (
                 <button
                   onClick={() => useSocialStore.setState({ activeThreadId: null })}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-1)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0 }}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-1)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0, marginRight: '4px' }}
                 >
                   <ArrowLeft size={24} />
                 </button>

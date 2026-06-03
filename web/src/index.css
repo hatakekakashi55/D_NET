@@ -969,3 +969,9 @@ body.chat-active .main-content.main-content--messages { padding: 0 !important; m
 
 body.chat-active .main-content { width: 100vw !important; max-width: 100vw !important; margin: 0 !important; padding: 0 !important; overflow-x: hidden !important; }
 
+
+/* -- Chat Messages -- */
+.msg-content p {
+  margin: 0;
+}
+
