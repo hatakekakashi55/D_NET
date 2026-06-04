@@ -8,6 +8,9 @@ export interface User {
   avatar_url?: string;
   website?: string;
   location?: string;
+  username?: string;
+  pronouns?: string;
+  gender?: string;
 }
 
 export interface ProfileData {

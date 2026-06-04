@@ -12,7 +12,7 @@ interface AuthState {
   mockSignIn: (email: string, password: string) => Promise<void>;
   mockSignUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: { display_name?: string, bio?: string, avatar_url?: string, website?: string, location?: string }) => Promise<void>;
+  updateProfile: (updates: { display_name?: string, bio?: string, avatar_url?: string, website?: string, location?: string, username?: string, pronouns?: string, gender?: string }) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -33,7 +33,10 @@ export const useAuthStore = create<AuthState>((set) => ({
           bio: session.user.user_metadata?.bio || '',
           avatar_url: session.user.user_metadata?.avatar_url || '',
           website: session.user.user_metadata?.website || '',
-          location: session.user.user_metadata?.location || ''
+          location: session.user.user_metadata?.location || '',
+          username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || '',
+          pronouns: session.user.user_metadata?.pronouns || '',
+          gender: session.user.user_metadata?.gender || 'Prefer not to say'
         };
         localStorage.setItem('dnet_token', session.access_token);
         localStorage.setItem('dnet_user', JSON.stringify(userObj));
@@ -64,7 +67,10 @@ export const useAuthStore = create<AuthState>((set) => ({
           bio: session.user.user_metadata?.bio || '',
           avatar_url: session.user.user_metadata?.avatar_url || '',
           website: session.user.user_metadata?.website || '',
-          location: session.user.user_metadata?.location || ''
+          location: session.user.user_metadata?.location || '',
+          username: session.user.user_metadata?.username || session.user.email?.split('@')[0] || '',
+          pronouns: session.user.user_metadata?.pronouns || '',
+          gender: session.user.user_metadata?.gender || 'Prefer not to say'
         };
         localStorage.setItem('dnet_token', session.access_token);
         localStorage.setItem('dnet_user', JSON.stringify(userObj));
@@ -118,7 +124,10 @@ export const useAuthStore = create<AuthState>((set) => ({
               bio: signUpData.session.user.user_metadata?.bio || '',
               avatar_url: signUpData.session.user.user_metadata?.avatar_url || '',
               website: signUpData.session.user.user_metadata?.website || '',
-              location: signUpData.session.user.user_metadata?.location || ''
+              location: signUpData.session.user.user_metadata?.location || '',
+              username: signUpData.session.user.user_metadata?.username || signUpData.session.user.email?.split('@')[0] || '',
+              pronouns: signUpData.session.user.user_metadata?.pronouns || '',
+              gender: signUpData.session.user.user_metadata?.gender || 'Prefer not to say'
             };
             localStorage.setItem('dnet_token', signUpData.session.access_token);
             localStorage.setItem('dnet_user', JSON.stringify(userObj));
@@ -151,7 +160,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         bio: data.session.user.user_metadata?.bio || '',
         avatar_url: data.session.user.user_metadata?.avatar_url || '',
         website: data.session.user.user_metadata?.website || '',
-        location: data.session.user.user_metadata?.location || ''
+        location: data.session.user.user_metadata?.location || '',
+        username: data.session.user.user_metadata?.username || data.session.user.email?.split('@')[0] || '',
+        pronouns: data.session.user.user_metadata?.pronouns || '',
+        gender: data.session.user.user_metadata?.gender || 'Prefer not to say'
       };
       localStorage.setItem('dnet_token', data.session.access_token);
       localStorage.setItem('dnet_user', JSON.stringify(userObj));
@@ -187,7 +199,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         bio: data.session.user.user_metadata?.bio || '',
         avatar_url: data.session.user.user_metadata?.avatar_url || '',
         website: data.session.user.user_metadata?.website || '',
-        location: data.session.user.user_metadata?.location || ''
+        location: data.session.user.user_metadata?.location || '',
+        username: data.session.user.user_metadata?.username || data.session.user.email?.split('@')[0] || '',
+        pronouns: data.session.user.user_metadata?.pronouns || '',
+        gender: data.session.user.user_metadata?.gender || 'Prefer not to say'
       };
       localStorage.setItem('dnet_token', data.session.access_token);
       localStorage.setItem('dnet_user', JSON.stringify(userObj));

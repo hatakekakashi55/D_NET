@@ -23,8 +23,11 @@ export default function ProfilePage({ onNavigate, onBack, viewedUser }: ProfileP
   const [isEditing, setIsEditing] = useState(false);
   
   const [editName, setEditName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editPronouns, setEditPronouns] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editWebsite, setEditWebsite] = useState('');
+  const [editGender, setEditGender] = useState('Prefer not to say');
   const [editLocation, setEditLocation] = useState('');
   
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -77,9 +80,12 @@ export default function ProfilePage({ onNavigate, onBack, viewedUser }: ProfileP
 
   const openEdit = () => {
     setEditName(user?.display_name || '');
+    setEditUsername(user?.username || user?.email.split('@')[0] || '');
+    setEditPronouns(user?.pronouns || '');
     setEditBio(user?.bio || '');
-    setEditWebsite((user as any)?.website || '');
-    setEditLocation((user as any)?.location || '');
+    setEditWebsite(user?.website || '');
+    setEditGender(user?.gender || 'Prefer not to say');
+    setEditLocation(user?.location || '');
     setIsEditing(true);
   };
 
@@ -87,8 +93,11 @@ export default function ProfilePage({ onNavigate, onBack, viewedUser }: ProfileP
     setSaving(true);
     await updateProfile({
       display_name: editName,
+      username: editUsername,
+      pronouns: editPronouns,
       bio: editBio,
       website: editWebsite,
+      gender: editGender,
       location: editLocation
     });
     setSaving(false);
@@ -416,10 +425,22 @@ export default function ProfilePage({ onNavigate, onBack, viewedUser }: ProfileP
               <button onClick={() => setIsEditing(false)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: '20px' }}>✕</button>
             </div>
 
-            {/* Display Name */}
+            {/* Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Display Name</label>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Name</label>
               <input type="text" className="input-field" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Your name" style={{ width: '100%' }} />
+            </div>
+
+            {/* Username */}
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Username</label>
+              <input type="text" className="input-field" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} placeholder="username" style={{ width: '100%' }} />
+            </div>
+
+            {/* Pronouns */}
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Pronouns</label>
+              <input type="text" className="input-field" value={editPronouns} onChange={(e) => setEditPronouns(e.target.value)} placeholder="they/them" style={{ width: '100%' }} />
             </div>
 
             {/* Bio */}
@@ -430,10 +451,21 @@ export default function ProfilePage({ onNavigate, onBack, viewedUser }: ProfileP
                 style={{ width: '100%', resize: 'none', height: '72px', minHeight: 'unset' }} />
             </div>
 
-            {/* Website */}
+            {/* Links / Website */}
             <div>
-              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Website</label>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Links</label>
               <input type="url" className="input-field" value={editWebsite} onChange={(e) => setEditWebsite(e.target.value)} placeholder="https://yoursite.com" style={{ width: '100%' }} />
+            </div>
+
+            {/* Gender */}
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Gender</label>
+              <select className="input-field" value={editGender} onChange={(e) => setEditGender(e.target.value)} style={{ width: '100%', appearance: 'none', cursor: 'pointer' }}>
+                <option value="Prefer not to say">Prefer not to say</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Custom">Custom</option>
+              </select>
             </div>
 
             {/* Location */}
