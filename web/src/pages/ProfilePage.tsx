@@ -5,7 +5,7 @@ import { useSocialStore } from '../socialStore';
 import type { SocialUser } from '../socialStore';
 import api from '../api';
 import { supabase } from '../supabaseClient';
-import { ArrowLeft, MessageSquare, UserPlus, UserMinus, Grid3X3, Camera, Link, MapPin, Moon, Star, Zap, Settings } from 'lucide-react';
+import { ArrowLeft, MessageSquare, UserPlus, UserMinus, Grid3X3, Camera, Link, MapPin, Moon, Star, Zap } from 'lucide-react';
 
 interface ProfilePageProps {
   onNavigate: (page: string, params?: any) => void;

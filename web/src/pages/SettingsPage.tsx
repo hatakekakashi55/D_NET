@@ -12,12 +12,22 @@ interface SettingsPageProps {
 }
 
 export default function SettingsPage({ onBack }: SettingsPageProps) {
-  const { user, signOut } = useAuthStore();
+  const { user, updateProfile, signOut } = useAuthStore();
   const { backupChats, restoreChats } = useSocialStore();
 
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
+
+  // Edit Profile state
+  const [editName, setEditName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editPronouns, setEditPronouns] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [editWebsite, setEditWebsite] = useState('');
+  const [editGender, setEditGender] = useState('Prefer not to say');
+  const [editLocation, setEditLocation] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Settings toggles
   const [darkMode, setDarkMode] = useState(true);
@@ -29,6 +39,32 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const [commentNotifications, setCommentNotifications] = useState(true);
   const [encryptMessages, setEncryptMessages] = useState(true);
   const [readReceipts, setReadReceipts] = useState(true);
+
+  const openEditProfile = () => {
+    setEditName(user?.display_name || '');
+    setEditUsername(user?.username || user?.email.split('@')[0] || '');
+    setEditPronouns(user?.pronouns || '');
+    setEditBio(user?.bio || '');
+    setEditWebsite(user?.website || '');
+    setEditGender(user?.gender || 'Prefer not to say');
+    setEditLocation(user?.location || '');
+    setActiveSection('edit_profile');
+  };
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    await updateProfile({
+      display_name: editName,
+      username: editUsername,
+      pronouns: editPronouns,
+      bio: editBio,
+      website: editWebsite,
+      gender: editGender,
+      location: editLocation
+    });
+    setSaving(false);
+    setActiveSection(null);
+  };
 
   const handleBackup = async () => {
     setIsBackingUp(true);
@@ -114,6 +150,58 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   );
 
   // Sub-sections
+  if (activeSection === 'edit_profile') {
+    return (
+      <div style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button onClick={() => setActiveSection(null)} style={{ background: 'none', border: 'none', color: 'var(--text-1)', cursor: 'pointer', display: 'flex', padding: 0 }}><ArrowLeft size={24} /></button>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Edit Profile</h2>
+          </div>
+          <button onClick={handleSaveProfile} disabled={saving || !editName.trim()} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600, fontSize: '15px' }}>
+            {saving ? 'Saving...' : 'Done'}
+          </button>
+        </div>
+        
+        <div style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Name</label>
+            <input type="text" className="input-field" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Your name" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)', outline: 'none' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Username</label>
+            <input type="text" className="input-field" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} placeholder="username" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)', outline: 'none' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Pronouns</label>
+            <input type="text" className="input-field" value={editPronouns} onChange={(e) => setEditPronouns(e.target.value)} placeholder="they/them" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)', outline: 'none' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Bio</label>
+            <textarea className="input-field" value={editBio} onChange={(e) => setEditBio(e.target.value)} placeholder="Subconscious explorer. Dream journaler." rows={3} style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)', outline: 'none', resize: 'none' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Links</label>
+            <input type="url" className="input-field" value={editWebsite} onChange={(e) => setEditWebsite(e.target.value)} placeholder="https://yoursite.com" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)', outline: 'none' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Gender</label>
+            <select className="input-field" value={editGender} onChange={(e) => setEditGender(e.target.value)} style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)', outline: 'none', appearance: 'none', cursor: 'pointer' }}>
+              <option value="Prefer not to say">Prefer not to say</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-3)', marginBottom: '6px', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '1px' }}>Location</label>
+            <input type="text" className="input-field" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="Dream City, Subconscious" style={{ width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)', outline: 'none' }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (activeSection === 'notifications') {
     return (
       <div style={{ maxWidth: '600px', margin: '0 auto', paddingBottom: '80px' }}>
@@ -223,7 +311,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
 
       {/* Settings Sections */}
       <SectionHeader title="Account" />
-      <SettingsItem icon={User} label="Edit Profile" subtitle="Name, bio, avatar, website" onClick={onBack} />
+      <SettingsItem icon={User} label="Edit Profile" subtitle="Name, bio, avatar, website" onClick={openEditProfile} />
       <SettingsItem icon={Lock} label="Privacy" subtitle="Account privacy, activity status" onClick={() => setActiveSection('privacy')} />
       <SettingsItem icon={Shield} label="Security" subtitle="Password, login activity" onClick={() => {}} />
 
