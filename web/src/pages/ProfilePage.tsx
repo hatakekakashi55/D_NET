@@ -168,11 +168,6 @@ export default function ProfilePage({ onNavigate, onBack, viewedUser }: ProfileP
             @{username?.toLowerCase().replace(/\s+/g, '')}
           </span>
         </div>
-        {isSelf && (
-          <button className="desktop-only" onClick={openEdit} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: '8px' }}>
-            <Settings size={20} />
-          </button>
-        )}
         <button id="trigger-edit-profile" onClick={openEdit} style={{ display: 'none' }} />
       </div>
 

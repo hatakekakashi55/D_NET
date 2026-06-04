@@ -102,9 +102,15 @@ function App() {
       {/* Mobile Top Header (Insta Style) */}
       <div className="mobile-header">
         <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: '0.5px' }}>D-NET</span>
-        <button onClick={() => navigateToTab('messages')} style={{ color: 'var(--text-1)', background: 'none', border: 'none', cursor: 'pointer' }}>
-          <MessageCircle size={22} />
-        </button>
+        {activeTab === 'profile' && !selectedUser ? (
+          <button onClick={() => setActiveTab('settings')} style={{ color: 'var(--text-1)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <Settings size={22} />
+          </button>
+        ) : (
+          <button onClick={() => navigateToTab('messages')} style={{ color: 'var(--text-1)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <MessageCircle size={22} />
+          </button>
+        )}
       </div>
 
       <div className="app-shell" style={{ background: 'var(--bg)' }}>
