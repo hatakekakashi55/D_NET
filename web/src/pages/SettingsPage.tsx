@@ -86,7 +86,9 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
   const SettingsItem = ({ icon: Icon, label, subtitle, onClick, danger, rightContent }: {
     icon: any; label: string; subtitle?: string; onClick?: () => void; danger?: boolean; rightContent?: React.ReactNode;
   }) => (
-    <button
+    <div
+      role="button"
+      tabIndex={onClick ? 0 : -1}
       onClick={onClick}
       style={{
         display: 'flex', alignItems: 'center', gap: '16px', padding: '14px 16px', width: '100%',
@@ -102,7 +104,7 @@ export default function SettingsPage({ onBack }: SettingsPageProps) {
         {subtitle && <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '2px' }}>{subtitle}</div>}
       </div>
       {rightContent || (onClick && <ChevronRight size={18} style={{ color: 'var(--text-3)', flexShrink: 0 }} />)}
-    </button>
+    </div>
   );
 
   const SectionHeader = ({ title }: { title: string }) => (
