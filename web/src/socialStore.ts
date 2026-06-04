@@ -235,17 +235,20 @@ export const useSocialStore = create<SocialState>()(
       const currentUser = useAuthStore.getState().user;
       if (currentUser) {
         set((state) => {
+          // Use stable ID based on sorted user IDs so it's always the same
+          const stableRecipientId = `t_${partnerId}_${currentUserId}`;
           let recipientThread = state.threads.find(t => t.ownerId === partnerId && t.user.id === currentUserId);
           let newThreads = [...state.threads];
 
           if (!recipientThread) {
             recipientThread = {
-              id: 't_' + Date.now() + '_recp',
+              id: stableRecipientId,
               ownerId: partnerId,
               user: {
                 id: currentUser.id,
                 username: currentUser.email?.split('@')[0] || 'dreamer',
-                display_name: (currentUser as any).user_metadata?.display_name || currentUser.email?.split('@')[0] || 'Dreamer',
+                display_name: (currentUser as any).user_metadata?.display_name || currentUser.display_name || currentUser.email?.split('@')[0] || 'Dreamer',
+                avatar_url: (currentUser as any).avatar_url || '',
                 is_ai: false
               } as any,
               messages: []
@@ -255,7 +258,7 @@ export const useSocialStore = create<SocialState>()(
 
           // Add message to recipient's thread (with seen: false)
           newThreads = newThreads.map(t => {
-            if (t.id === recipientThread!.id) {
+            if (t.ownerId === partnerId && t.user.id === currentUserId) {
               return { ...t, isUnread: true, messages: [...t.messages, { ...myMsg, seen: false }] };
             }
             return t;

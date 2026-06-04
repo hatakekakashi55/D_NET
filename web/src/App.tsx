@@ -6,10 +6,11 @@ import ExplorePage from './pages/UniversePage';
 import MessagesPage from './pages/MessagesPage';
 import ProfilePage from './pages/ProfilePage';
 import SearchPage from './pages/SearchPage';
+import SettingsPage from './pages/SettingsPage';
 import { Home, Search, Compass, MessageCircle, User, LogOut, Settings } from 'lucide-react';
 import { useSocialStore } from './socialStore';
 
-type Tab = 'home' | 'search' | 'explore' | 'messages' | 'profile';
+type Tab = 'home' | 'search' | 'explore' | 'messages' | 'profile' | 'settings';
 
 function App() {
   const { isAuthenticated, isLoading, initialize, signOut } = useAuthStore();
@@ -79,7 +80,10 @@ function App() {
       case 'profile':
         return <ProfilePage onNavigate={(page) => {
           if (page === 'home') setActiveTab('home');
+          if (page === 'settings') setActiveTab('settings');
         }} onBack={() => setActiveTab('home')} />;
+      case 'settings':
+        return <SettingsPage onBack={() => setActiveTab('profile')} />;
       default:
         return <HomePage onNavigate={() => {}} />;
     }
@@ -99,7 +103,7 @@ function App() {
       <div className="mobile-header">
         <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, letterSpacing: '0.5px' }}>D-NET</span>
         {activeTab === 'profile' && !selectedUser ? (
-          <button onClick={() => document.getElementById('trigger-edit-profile')?.click()} style={{ color: 'var(--text-1)', background: 'none', border: 'none', cursor: 'pointer' }}>
+          <button onClick={() => setActiveTab('settings')} style={{ color: 'var(--text-1)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <Settings size={22} />
           </button>
         ) : (
@@ -154,6 +158,22 @@ function App() {
           </div>
 
           <div className="sidebar-footer">
+            <button
+              className="nav-item"
+              onClick={() => navigateToTab('settings')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '12px',
+                borderRadius: 'var(--radius-md)',
+                width: '100%',
+                marginBottom: '8px'
+              }}
+            >
+              <Settings size={22} />
+              <span>Settings</span>
+            </button>
             <button
               className="nav-item"
               onClick={signOut}

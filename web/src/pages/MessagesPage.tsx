@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSocialStore } from '../socialStore';
 import type { ChatMessage } from '../socialStore';
 import { formatMarkdown } from '../helpers';
-import { ArrowLeft, Search, Phone, Video, Info, Image as ImageIcon, Mic, PlusCircle, MessageSquare, Camera, X, Lock, CloudUpload, CloudDownload, MoreVertical, Pin, Trash2, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Search, Phone, Video, Info, Image as ImageIcon, Mic, PlusCircle, MessageSquare, Camera, X, Lock, MoreVertical, Pin, Trash2, Eye, EyeOff } from 'lucide-react';
 import { useAuthStore } from '../authStore';
 import { supabase } from '../supabaseClient';
 import { decryptMessage } from '../crypto';
@@ -15,6 +15,36 @@ const D_GUIDE = {
   avatar_color: '#8B8BF5',
   bio: 'AI Subconscious Analyst'
 } as any;
+
+/** Reusable avatar component that shows profile image or colored initial */
+function ChatAvatar({ user, size = 56 }: { user: any; size?: number }) {
+  const avatarUrl = user?.avatar_url;
+  const color = user?.avatar_color || 'var(--border-glow)';
+  const initial = (user?.display_name?.[0] || 'D').toUpperCase();
+  const fontSize = size > 50 ? '20px' : size > 30 ? '15px' : '12px';
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={user?.display_name || 'User'}
+        style={{
+          width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0
+        }}
+      />
+    );
+  }
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', background: color,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontWeight: 'bold', fontSize, color: '#fff', flexShrink: 0
+    }}>
+      {initial}
+    </div>
+  );
+}
 
 function getRelativeTime(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -73,7 +103,7 @@ function DecryptedPreview({ m, myUserId, partnerId }: { m: ChatMessage; myUserId
 
 export default function MessagesPage() {
   const { user } = useAuthStore();
-  const { threads, activeThreadId, sendMessage, createThread, backupChats, restoreChats, syncDirectMessages } = useSocialStore();
+  const { threads, activeThreadId, sendMessage, createThread, syncDirectMessages } = useSocialStore();
   
   const myThreads = threads.filter(t => t.ownerId === user?.id);
   const [input, setInput] = useState('');
@@ -84,8 +114,7 @@ export default function MessagesPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   
-  const [isBackingUp, setIsBackingUp] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
+
   const [menuThreadId, setMenuThreadId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -143,7 +172,16 @@ export default function MessagesPage() {
   };
 
   const openUserChat = (u: any) => {
-    const safeUser = { ...u, username: u.username || u.email?.split('@')[0] || 'dreamer', avatar_color: '#8B8BF5', followers: 0, following: 0, is_following: false };
+    const safeUser = {
+      ...u,
+      username: u.username || u.email?.split('@')[0] || 'dreamer',
+      display_name: u.display_name || u.username || 'Dreamer',
+      avatar_url: u.avatar_url || '',
+      avatar_color: u.avatar_color || '#8B8BF5',
+      followers: u.followers || 0,
+      following: u.following || 0,
+      is_following: false
+    };
     const threadId = createThread(safeUser);
     useSocialStore.setState({ activeThreadId: threadId });
     setShowSearch(false);
@@ -199,34 +237,13 @@ export default function MessagesPage() {
             justifyContent: 'space-between'
           }}>
             {user?.display_name || 'Messages'}
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button 
-                onClick={async () => {
-                  setIsBackingUp(true);
-                  await backupChats();
-                  setIsBackingUp(false);
-                  alert('Chats backed up successfully!');
-                }}
-                disabled={isBackingUp}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}
-                title="Backup Chats to Cloud"
-              >
-                <CloudUpload size={20} />
-              </button>
-              <button 
-                onClick={async () => {
-                  setIsRestoring(true);
-                  await restoreChats();
-                  setIsRestoring(false);
-                  alert('Chats restored successfully!');
-                }}
-                disabled={isRestoring}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}
-                title="Restore Chats from Cloud"
-              >
-                <CloudDownload size={20} />
-              </button>
-            </div>
+            <button
+              onClick={() => setShowSearch(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-1)', display: 'flex', alignItems: 'center', padding: '4px' }}
+              title="New Message"
+            >
+              <PlusCircle size={24} />
+            </button>
           </div>
 
           {/* Search bar trigger */}
@@ -335,8 +352,8 @@ export default function MessagesPage() {
                   }}
                   onMouseLeave={() => setMenuThreadId(null)}
                 >
-                  <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: (t.user as any).avatar_color || 'var(--border-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '20px', color: '#fff', flexShrink: 0, position: 'relative' }}>
-                    {t.user.display_name[0].toUpperCase()}
+                  <div style={{ position: 'relative' }}>
+                    <ChatAvatar user={t.user} size={56} />
                     {isHighlighted && <span style={{ position: 'absolute', top: 2, right: 2, width: 12, height: 12, background: 'var(--primary)', borderRadius: '50%', border: '2px solid var(--bg)' }} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -416,21 +433,7 @@ export default function MessagesPage() {
                 </button>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  background: (activeThread.user as any).avatar_color || 'var(--border-glow)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  color: '#fff',
-                  fontSize: '15px',
-                  flexShrink: 0
-                }}>
-                  {activeThread.user.display_name[0].toUpperCase()}
-                </div>
+                <ChatAvatar user={activeThread.user} size={36} />
                 <div style={{ minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-1)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                     {activeThread.user.display_name}
@@ -459,21 +462,7 @@ export default function MessagesPage() {
           }}>
             {activeThread.messages.length === 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', margin: '40px 0' }}>
-                <div style={{
-                  width: '96px',
-                  height: '96px',
-                  borderRadius: '50%',
-                  background: (activeThread.user as any).avatar_color || 'var(--border-glow)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold',
-                  fontSize: '40px',
-                  color: '#fff',
-                  marginBottom: '16px'
-                }}>
-                  {activeThread.user.display_name[0].toUpperCase()}
-                </div>
+                <ChatAvatar user={activeThread.user} size={96} />
                 <h3 style={{ margin: '0 0 4px 0', fontSize: '20px' }}>{activeThread.user.display_name}</h3>
                 <p style={{ margin: 0, color: 'var(--text-3)', fontSize: '14px' }}>
                   {(activeThread.user as any).is_ai ? 'D-NET Artificial Intelligence' : 'D-NET Dreamer'}
